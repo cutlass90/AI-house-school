@@ -1,0 +1,10 @@
+checkpoints
+weights
+*.dat
+.idea
+*.pth
+*.png
+*.mp4
+*.csv
+__pycache__
+dataset
