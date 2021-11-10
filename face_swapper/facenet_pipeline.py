@@ -43,7 +43,7 @@ def read_image_as_tensor(path, device):
 
 def check_distributions(path_to_cropped, n_samples):
     resnet = InceptionResnetV1(pretrained='vggface2').eval().to(device).requires_grad_(False)
-    dirs = glob('/home/nazar/DATASETS/images/VGG-Face2/mtcnn_cropped/test/*')
+    dirs = glob(join(path_to_cropped, '*'))
     same_dist, diff_dist = [], []
     for i in tqdm(range(n_samples)):
         current_dir = choice(dirs)
