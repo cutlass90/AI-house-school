@@ -32,6 +32,7 @@ writer = SummaryWriter(log_dir=os.path.join(opt.checkpoint_dir, 'tf_log'))
 class VGGDataset(Dataset):
     def __init__(self, path_to_data):
         self.paths = glob(join(path_to_data, '*/*.jpg'))
+        print(f'{len(self.paths)} images were found')
 
     def __getitem__(self, item):
         return read_image_as_tensor(self.paths[item], 'cpu')
@@ -44,6 +45,9 @@ def main():
     dataset = VGGDataset(path_to_data=opt.path_to_data)
     face_recognition = InceptionResnetV1(pretrained='vggface2').eval().to(opt.device).requires_grad_(False)
     swapper = Swapper(opt).to(opt.device)
+    if opt.load_checkpoint_path:
+        swapper.load_state_dict(torch.load(opt.load_checkpoint_path))
+        print(f'weight were loaded {opt.load_checkpoint_path}')
     optimizer = Adam(params=swapper.parameters(), lr=opt.lr, betas=(0.5, 0.999))
 
     for epoch in range(100500):
@@ -51,7 +55,7 @@ def main():
         for step, img in tqdm(enumerate(dataloader)):
             img = img.to(opt.device)
             with torch.no_grad():
-                target_ident_emb = face_recognition(img) #batch x 512
+                target_ident_emb = face_recognition(torch.cat([img[1:], img[:1]])) #batch x 512
             swapped = swapper(img, target_ident_emb)
 
             losses = {
