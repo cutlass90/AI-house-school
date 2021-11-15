@@ -2,15 +2,15 @@ import os
 class Config:
     def __init__(self):
         self.path_to_data = '/home/ubuntu/mtcnn_cropped/test'
-        self.checkpoint_dir = 'checkpoints/face_swap_base'
+        self.checkpoint_dir = 'checkpoints/face_swap_adain'
         self.device = 'cuda:0'
-        self.load_checkpoint_path = 'checkpoints/face_swap_base/weights/latest.pth'
+        self.load_checkpoint_path = 'checkpoints/face_swap_adain/weights/latest.pth'
         self.num_workers = 8
 
         self.batch_size = 6
         self.frame_size = 160
         self.lr = 0.0002
-        self.log_n_steps = 50
+        self.log_n_steps = 100
         self.log_N_images = 6
         self.save_n_steps = 300
 
@@ -24,7 +24,7 @@ class Config:
 
         # loss coeficients
         self.mse = 1
-        self.ident_loss = 0.01
+        self.ident_loss = 0.001
 
 
 opt = Config()

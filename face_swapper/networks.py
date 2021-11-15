@@ -5,6 +5,21 @@ from torch import nn
 from config import opt
 
 
+class AdaIN(nn.Module):
+    def __init__(self, channels, latent_size):
+        super().__init__()
+        self.channels = channels
+        self.linear = nn.Sequential(nn.Linear(latent_size, (channels+latent_size)//2),
+                                    nn.ELU(),
+                                    nn.Linear((channels+latent_size)//2, channels*2))
+
+    def forward(self, x, dlatent):
+        x = nn.InstanceNorm2d(self.channels)(x)
+        style = self.linear(dlatent)
+        style = style.view([-1, 2, x.size()[1]] + [1] * (len(x.size()) - 2))
+        return x * (style[:, 0] + 1) + style[:, 1]
+
+
 class FaceEncoder2(nn.Module):
 
     def __init__(self, filters, img_size, emb_size, downsamples):
@@ -57,6 +72,7 @@ class FaceDecoder2(nn.Module):
                 norm_layer(out),
                 nn.LeakyReLU(0.1)
             )
+            setattr(self, 'adain{}'.format(i), AdaIN(channels=out, latent_size=512))
             print(f'{inp}x{4 * 2 ** k}x{4 * 2 ** k} -> {out}x{4 * 2 ** (k + 1)}x{4 * 2 ** (k + 1)}')
             setattr(self, 'conv{}'.format(i), net)
 
@@ -68,13 +84,14 @@ class FaceDecoder2(nn.Module):
             nn.Tanh())
         print(f'Final shape is 3x{4 * 2 ** (k + 1)}x{4 * 2 ** (k + 1)}')
 
-    def forward(self, x):
+    def forward(self, x, iden_emb):
         x = self.dense(x)
         out = self.filters * 2 ** self.upsamples
         x = x.view(-1, out, 4, 4)
         for i in list(range(self.upsamples))[::-1]:
             net = getattr(self, 'conv{}'.format(i))
             x = net(x)
+            x = getattr(self, 'adain{}'.format(i))(x, iden_emb)
         x = F.interpolate(x, size=[self.img_size, self.img_size], mode='bilinear')
         x = self.conv_rgb(x)
         return x
@@ -95,7 +112,7 @@ class Swapper(nn.Module):
 
     def forward(self, img, ident_emb):
         encoded = self.encoder(img)
-        decoded = self.decoder(torch.cat([ident_emb, encoded], dim=1))
+        decoded = self.decoder(torch.cat([ident_emb, encoded], dim=1), ident_emb)
         return decoded
 
 
@@ -109,14 +126,14 @@ if __name__ == "__main__":
     out = encoder(img)
     print()
 
+    ident_emb = torch.randn(2,512).to(opt.device)
     decoder = FaceDecoder2(emb_size=opt.emb_size,
                            filters=opt.decoder_filters,
                            upsamples=opt.decoder_upsamples,
                            img_size=opt.frame_size).to(opt.device)
-    pred_img = decoder(out)
+    pred_img = decoder(out, ident_emb)
     print()
 
-    ident_emb = torch.randn(2,512).to(opt.device)
     swapepr = Swapper(opt).to(opt.device)
     swapped = swapepr(img, ident_emb)
     print()

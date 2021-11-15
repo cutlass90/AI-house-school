@@ -53,6 +53,7 @@ def main():
     for epoch in range(100500):
         dataloader = DataLoader(dataset, shuffle=True, batch_size=opt.batch_size, num_workers=opt.num_workers)
         for step, img in tqdm(enumerate(dataloader)):
+            step = step + len(dataloader)*epoch
             img = img.to(opt.device)
             with torch.no_grad():
                 target_ident_emb = face_recognition(torch.cat([img[1:], img[:1]])) #batch x 512
@@ -60,7 +61,7 @@ def main():
 
             losses = {
                 'mse': F.mse_loss(swapped, img),
-                'ident_loss':  calc_face_distance(target_ident_emb, face_recognition(swapped))
+                'ident_loss':  max(0, calc_face_distance(target_ident_emb, face_recognition(swapped)) - 0.8)
             }
             loss = sum(l * getattr(opt, name) for name, l in losses.items())
             optimizer.zero_grad()
