@@ -1,9 +1,13 @@
 import os
 class Config:
     def __init__(self):
-        self.path_to_data = '/home/ubuntu/mtcnn_cropped/test'
+        if os.path.isdir('/home/nazar'):
+            self.path_to_data = '/home/nazar/DATASETS/images/VGG-Face2/mtcnn_cropped/test'
+        else:
+            self.path_to_data = '/home/ubuntu/mtcnn_cropped/test'
         self.checkpoint_dir = 'checkpoints/face_swap_adain'
         self.device = 'cuda:0'
+        self.load_checkpoint_path = ''
         self.load_checkpoint_path = 'checkpoints/face_swap_adain/weights/latest.pth'
         self.num_workers = 8
 
@@ -23,8 +27,9 @@ class Config:
         self.decoder_upsamples = 5
 
         # loss coeficients
-        self.mse = 1
-        self.ident_loss = 0.001
+        self.perceptual_l1 = 1
+        self.mse = 0.1
+        self.ident_loss = 0.1
 
 
 opt = Config()

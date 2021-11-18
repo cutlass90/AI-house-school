@@ -26,8 +26,10 @@ def crop_mtcnn(path_to_data, path_to_save):
         dir_name = dirname(path).split('/')[-1]
         os.makedirs(join(path_to_save, dir_name), exist_ok=True)
         with torch.no_grad():
-            mtcnn(pil_loader(path), save_path=join(path_to_save, dir_name, basename(path)))
-
+            try:
+                mtcnn(pil_loader(path), save_path=join(path_to_save, dir_name, basename(path)))
+            except Exception as e:
+                print(e, path)
 
 def calc_face_distance(emb1, emb2):
     return (emb1 - emb2).norm()
@@ -65,7 +67,7 @@ def check_distributions(path_to_cropped, n_samples):
 
 
 if __name__ == "__main__":
-    crop_mtcnn(path_to_data='/home/nazar/DATASETS/images/VGG-Face2/data/vggface2_test/test',
-               path_to_save='/home/nazar/DATASETS/images/VGG-Face2/mtcnn_cropped/test')
-    check_distributions(path_to_cropped='/home/nazar/DATASETS/images/VGG-Face2/mtcnn_cropped/test',
-                        n_samples=10000)
+    crop_mtcnn(path_to_data='/datasets/VGG-Face2_new/VGG-Face2/data/train',
+               path_to_save='/datasets/VGG-Face2_new/mtcnn_cropped/train')
+    #check_distributions(path_to_cropped='/home/nazar/DATASETS/images/VGG-Face2/mtcnn_cropped/test',
+    #                    n_samples=10000)
