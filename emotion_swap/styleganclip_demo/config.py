@@ -16,8 +16,10 @@ class Config:
         self.checkpoint_dir = 'checkpoints/version1'
         self.device = 'cuda:0'
         self.load_checkpoint_path = ''
+        self.lr = 1e-4
 
-        self.batch_size = 4
+        self.batch_size = 8
+        self.n_write_log = 10
 
 
 opt = Config()
