@@ -1,39 +1,23 @@
+import itertools
 import os
 import random
 from functools import partial
-from glob import glob
-from os.path import join, basename
-import pickle
-import os
-
-import itertools
-import torch
-import copy
-from PIL import Image
+from os.path import join
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn.functional as F
-from imageio import mimread
 from sklearn.metrics import f1_score as measure_f1_score
 from tensorboardX import SummaryWriter
 from torch.optim import Adam
-from torch.utils.data import Dataset, DataLoader
-from torchvision.models.resnet import resnet18
+from torchvision.utils import make_grid
 from tqdm import tqdm
-from itertools import combinations
-import copy
-from stylegan_infer import Model
-from demo_autoencoder import load_checkpoints
-from modules.keypoint_detector import KPDetector
 
 from config import opt
-from torchvision.utils import make_grid
+from demo_autoencoder import load_checkpoints
+from modules.keypoint_detector import KPDetector
+from stylegan_infer import Model
 
-
-
-measure_f1_score = partial(measure_f1_score, average='micro')
 
 random.seed(42)
 np.random.seed(42)
@@ -62,16 +46,15 @@ class Dataloader:
         return torch.cat(inputs_b).add(1).div(2), torch.cat(targets_b).add(1).div(2), torch.cat(emotions_b)
 
 
-
 def main():
     dataloader = Dataloader()
 
     generator, kp_detector = load_checkpoints(config_path='config/vox-adv-256.yaml', checkpoint_path='/home/nazar/ai house school/emotion_swap/first-order-model/fomm_checkpoints/vox-adv-cpk.pth.tar',
                                               device=opt.device)
     kp_detector_trainable = KPDetector(block_expansion=32, num_kp=10, num_channels=3, max_features=1024, num_blocks=5, temperature=0.1, estimate_jacobian=True, scale_factor=0.25,
-                 single_jacobian_map=False, pad=0, adain_size=7).train().requires_grad_(True).to(opt.device)
+                                       single_jacobian_map=False, pad=0, adain_size=7).train().requires_grad_(True).to(opt.device)
     kp_detector_trainable.load_state_dict(kp_detector.state_dict(), strict=False)
-    kp_detector_trainable = kp_detector_trainable.requires_grad_(True).train()#todo add adain target emotion
+    kp_detector_trainable = kp_detector_trainable.requires_grad_(True).train()
 
     optimizer = Adam(kp_detector_trainable.parameters(), lr=opt.lr)
     for step in tqdm(itertools.count()):
@@ -84,7 +67,7 @@ def main():
         loss.backward()
         optimizer.step()
 
-        if step%opt.n_write_log == 0:
+        if step % opt.n_write_log == 0:
             writer.add_scalar('loss', loss.item(), step)
 
             with torch.no_grad():
@@ -97,13 +80,5 @@ def main():
                 print()
 
 
-
-
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
