@@ -26,6 +26,7 @@ from itertools import combinations
 import copy
 from stylegan_infer import Model
 from demo_autoencoder import load_checkpoints
+from modules.keypoint_detector import KPDetector
 
 from config import opt
 from torchvision.utils import make_grid
@@ -55,8 +56,10 @@ class Dataloader:
             data = self.model.inference(1, noise)[1:]
             inputs_b.append(data[0])
             targets_b.append(data[1])
-            emotions_b.append(emo)
-        return torch.cat(inputs_b).add(1).div(2), torch.cat(targets_b).add(1).div(2), emotions_b
+            target_emotion = torch.zeros([1, 7]).to(opt.device)
+            target_emotion[:, opt.emotion_list.index(emo)] = 1
+            emotions_b.append(target_emotion)
+        return torch.cat(inputs_b).add(1).div(2), torch.cat(targets_b).add(1).div(2), torch.cat(emotions_b)
 
 
 
@@ -65,7 +68,9 @@ def main():
 
     generator, kp_detector = load_checkpoints(config_path='config/vox-adv-256.yaml', checkpoint_path='/home/nazar/ai house school/emotion_swap/first-order-model/fomm_checkpoints/vox-adv-cpk.pth.tar',
                                               device=opt.device)
-    kp_detector_trainable = copy.deepcopy(kp_detector)
+    kp_detector_trainable = KPDetector(block_expansion=32, num_kp=10, num_channels=3, max_features=1024, num_blocks=5, temperature=0.1, estimate_jacobian=True, scale_factor=0.25,
+                 single_jacobian_map=False, pad=0, adain_size=7).train().requires_grad_(True).to(opt.device)
+    kp_detector_trainable.load_state_dict(kp_detector.state_dict(), strict=False)
     kp_detector_trainable = kp_detector_trainable.requires_grad_(True).train()#todo add adain target emotion
 
     optimizer = Adam(kp_detector_trainable.parameters(), lr=opt.lr)
@@ -73,7 +78,7 @@ def main():
         inputs, target, emotions = dataloader.get_batch(opt.batch_size)
         with torch.no_grad():
             target_kp = kp_detector(target)
-        pred_kp = kp_detector_trainable(inputs)
+        pred_kp = kp_detector_trainable(inputs, emotions)
         loss = sum([F.l1_loss(pred_kp[k], target_kp[k]) for k in target_kp.keys()])
         optimizer.zero_grad()
         loss.backward()

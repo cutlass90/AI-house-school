@@ -154,28 +154,49 @@ class Encoder(nn.Module):
         return outs
 
 
+class AdaIN(nn.Module):
+    def __init__(self, channels, latent_size):
+        super().__init__()
+        self.channels = channels
+        self.linear = nn.Sequential(nn.Linear(latent_size, (channels+latent_size)//2),
+                                    nn.ELU(),
+                                    nn.Linear((channels+latent_size)//2, channels*2))
+
+    def forward(self, x, dlatent):
+        x = nn.InstanceNorm2d(self.channels)(x)
+        style = self.linear(dlatent)
+        style = style.view([-1, 2, x.size()[1]] + [1] * (len(x.size()) - 2))
+        return x * (style[:, 0] + 1) + style[:, 1]
+
 class Decoder(nn.Module):
     """
     Hourglass Decoder
     """
 
-    def __init__(self, block_expansion, in_features, num_blocks=3, max_features=256):
+    def __init__(self, block_expansion, in_features, num_blocks=3, max_features=256, adain_size=None):
         super(Decoder, self).__init__()
-
+        self.adain_size = adain_size
         up_blocks = []
+        adains = []
 
         for i in range(num_blocks)[::-1]:
             in_filters = (1 if i == num_blocks - 1 else 2) * min(max_features, block_expansion * (2 ** (i + 1)))
             out_filters = min(max_features, block_expansion * (2 ** i))
             up_blocks.append(UpBlock2d(in_filters, out_filters, kernel_size=3, padding=1))
+            if adain_size is not None:
+                adains.append(AdaIN(out_filters, adain_size))
 
         self.up_blocks = nn.ModuleList(up_blocks)
         self.out_filters = block_expansion + in_features
+        if adain_size is not None:
+            self.adains = nn.ModuleList(adains)
 
-    def forward(self, x):
+    def forward(self, x, target_emotion):
         out = x.pop()
-        for up_block in self.up_blocks:
+        for i, up_block in enumerate(self.up_blocks):
             out = up_block(out)
+            if self.adain_size is not None:
+                out = self.adains[i](out, target_emotion)
             skip = x.pop()
             out = torch.cat([out, skip], dim=1)
         return out
@@ -186,14 +207,14 @@ class Hourglass(nn.Module):
     Hourglass architecture.
     """
 
-    def __init__(self, block_expansion, in_features, num_blocks=3, max_features=256):
+    def __init__(self, block_expansion, in_features, num_blocks=3, max_features=256, adain_size=None):
         super(Hourglass, self).__init__()
         self.encoder = Encoder(block_expansion, in_features, num_blocks, max_features)
-        self.decoder = Decoder(block_expansion, in_features, num_blocks, max_features)
+        self.decoder = Decoder(block_expansion, in_features, num_blocks, max_features, adain_size=adain_size)
         self.out_filters = self.decoder.out_filters
 
-    def forward(self, x):
-        return self.decoder(self.encoder(x))
+    def forward(self, x, target_emotion=None):
+        return self.decoder(self.encoder(x), target_emotion)
 
 
 class AntiAliasInterpolation2d(nn.Module):

@@ -11,11 +11,11 @@ class KPDetector(nn.Module):
 
     def __init__(self, block_expansion, num_kp, num_channels, max_features,
                  num_blocks, temperature, estimate_jacobian=False, scale_factor=1,
-                 single_jacobian_map=False, pad=0):
+                 single_jacobian_map=False, pad=0, adain_size=None):
         super(KPDetector, self).__init__()
 
         self.predictor = Hourglass(block_expansion, in_features=num_channels,
-                                   max_features=max_features, num_blocks=num_blocks)
+                                   max_features=max_features, num_blocks=num_blocks, adain_size=adain_size)
 
         self.kp = nn.Conv2d(in_channels=self.predictor.out_filters, out_channels=num_kp, kernel_size=(7, 7),
                             padding=pad)
@@ -46,11 +46,11 @@ class KPDetector(nn.Module):
 
         return kp
 
-    def forward(self, x):
+    def forward(self, x, target_emotion=None):
         if self.scale_factor != 1:
             x = self.down(x)
 
-        feature_map = self.predictor(x)
+        feature_map = self.predictor(x, target_emotion)
         prediction = self.kp(feature_map)
 
         final_shape = prediction.shape
