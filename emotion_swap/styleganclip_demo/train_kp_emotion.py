@@ -57,7 +57,9 @@ class Dataloader:
             inputs_b.append(images[comb[b][0]])
             targets_b.append(images[comb[b][1]])
             emotions_b.append((emotions[comb[b][0]], emotions[comb[b][1]]))
-        return torch.cat(inputs_b), torch.cat(targets_b), emotions_b
+        return torch.cat(inputs_b).add(1).div(2), torch.cat(targets_b).add(1).div(2), emotions_b
+
+
 
 if __name__ == "__main__":
     dataloader = Dataloader()
