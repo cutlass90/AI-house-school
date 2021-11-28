@@ -55,14 +55,22 @@ def main():
                                        single_jacobian_map=False, pad=0, adain_size=7).train().requires_grad_(True).to(opt.device)
     kp_detector_trainable.load_state_dict(kp_detector.state_dict(), strict=False)
     kp_detector_trainable = kp_detector_trainable.requires_grad_(True).train()
+    emotion_estimator = YorBestEmotionRecognition()
 
     optimizer = Adam(kp_detector_trainable.parameters(), lr=opt.lr)
     for step in tqdm(itertools.count()):
-        inputs, target, emotions = dataloader.get_batch(opt.batch_size)
+        inputs, target, target_emotions = dataloader.get_batch(opt.batch_size)
         with torch.no_grad():
             target_kp = kp_detector(target)
-        pred_kp = kp_detector_trainable(inputs, emotions)
-        loss = sum([F.l1_loss(pred_kp[k], target_kp[k]) for k in target_kp.keys()])
+        pred_kp = kp_detector_trainable(inputs, target_emotions)
+        kp_source = kp_detector(inputs)
+        out_pred = generator(inputs, kp_source=kp_source, kp_driving=pred_kp)['prediction']
+        predicted_emotions = emotion_estimator(out_pred)
+        losses = {
+            'l1_kp':sum([F.l1_loss(pred_kp[k], target_kp[k]) for k in target_kp.keys()]), # todo KL on heatmap
+            'ce_loss': F.cross_entropy(predicted_emotions, target_emotions)
+        }
+        loss = sum([getattr(opt, k) * l for k, l in losses.items()])
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()

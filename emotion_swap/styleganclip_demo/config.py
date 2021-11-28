@@ -21,6 +21,9 @@ class Config:
         self.batch_size = 8
         self.n_write_log = 10
 
+        self.l1_kp = 0.01
+        self.ce_loss = 1
+
 
 opt = Config()
 os.makedirs(os.path.join(opt.checkpoint_dir, 'weights'), exist_ok=True)
